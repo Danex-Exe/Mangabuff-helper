@@ -106,6 +106,15 @@
     return localStorage.getItem(RESUME_SCROLL_KEY) === '1';
   }
 
+  function isAdminSession() {
+    return Boolean(
+      window.isAdmin ||
+      document.querySelector('.admin-panel__tasks, .super-moder, .admin-panel__show-task-btn') ||
+      location.pathname.startsWith('/admin') ||
+      location.pathname.startsWith('/super-moderation')
+    );
+  }
+
   function showToast(message, tone = 'info') {
     if (!toastContainer) {
       return;
@@ -1212,6 +1221,85 @@
         background: #fff;
       }
 
+      .mb-helper-admin-toggle {
+        position: fixed;
+        right: 0;
+        top: calc(50% - 92px);
+        transform: translateY(-50%);
+        z-index: 99995;
+        border: none;
+        border-radius: 16px 0 0 16px;
+        background: linear-gradient(135deg, #7b1d1d, #bc4747);
+        color: #fff8f8;
+        padding: 14px 10px;
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: -10px 18px 30px rgba(74, 16, 16, 0.24);
+      }
+
+      .mb-helper-admin-toggle.is-open {
+        right: min(360px, calc(100vw - 24px));
+      }
+
+      .mb-helper-admin-drawer {
+        position: fixed;
+        right: 0;
+        top: 0;
+        height: 100vh;
+        width: min(360px, calc(100vw - 12px));
+        z-index: 99994;
+        background: linear-gradient(180deg, #fff6f6 0%, #ffffff 100%);
+        border-left: 1px solid rgba(188, 71, 71, 0.28);
+        box-shadow: -22px 0 60px rgba(74, 16, 16, 0.16);
+        transform: translateX(100%);
+        transition: transform 0.2s ease;
+        display: grid;
+        grid-template-rows: auto auto 1fr;
+      }
+
+      .mb-helper-admin-drawer.is-open {
+        transform: translateX(0);
+      }
+
+      .mb-helper-admin-head {
+        padding: 16px 18px;
+        background: linear-gradient(135deg, #7b1d1d, #bc4747);
+        color: #fff8f8;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .mb-helper-admin-links {
+        padding: 16px 18px 20px;
+        display: grid;
+        gap: 10px;
+        align-content: start;
+        overflow-y: auto;
+      }
+
+      .mb-helper-admin-link {
+        display: block;
+        padding: 12px 14px;
+        border-radius: 14px;
+        text-decoration: none;
+        background: #fff;
+        color: #5a1b1b;
+        border: 1px solid rgba(188, 71, 71, 0.18);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .mb-helper-admin-text {
+        font-size: 12px;
+        line-height: 1.45;
+        color: #7a4a4a;
+      }
+
       @media (max-width: 640px) {
         .mb-helper-launcher,
         .mb-helper-panel {
@@ -1224,6 +1312,10 @@
         }
 
         .mb-helper-chat-toggle.is-open {
+          right: calc(100vw - 12px);
+        }
+
+        .mb-helper-admin-toggle.is-open {
           right: calc(100vw - 12px);
         }
       }
@@ -1508,6 +1600,39 @@
       <iframe id="mb-chat-frame" class="mb-helper-chat-frame" src="${settings.chatUrl}" referrerpolicy="no-referrer"></iframe>
     `;
 
+    let adminToggle = null;
+    let adminDrawer = null;
+    let adminDrawerController = null;
+
+    if (isAdminSession()) {
+      adminToggle = document.createElement('button');
+      adminToggle.className = 'mb-helper-admin-toggle';
+      adminToggle.type = 'button';
+      adminToggle.textContent = 'Admin';
+
+      adminDrawer = document.createElement('aside');
+      adminDrawer.className = 'mb-helper-admin-drawer';
+      adminDrawer.innerHTML = `
+        <div class="mb-helper-admin-head">
+          <div>
+            <p class="mb-helper-chat-title">Admin Drawer</p>
+            <p class="mb-helper-chat-text">Показывается только при уже подтверждённой сервером админ-сессии.</p>
+          </div>
+          <button class="mb-helper-chat-close" type="button" id="mb-admin-close">✕</button>
+        </div>
+        <div class="mb-helper-chat-actions">
+          <div class="mb-helper-admin-text">Этот блок не выдаёт прав. Он только даёт быстрый доступ к штатным административным страницам сайта.</div>
+        </div>
+        <div class="mb-helper-admin-links">
+          <a class="mb-helper-admin-link" href="${location.origin}/admin" target="_blank" rel="noopener noreferrer">Открыть /admin</a>
+          <a class="mb-helper-admin-link" href="${location.origin}/super-moderation" target="_blank" rel="noopener noreferrer">Открыть /super-moderation</a>
+          <a class="mb-helper-admin-link" href="${location.origin}/admin/parser-task/getActiveTask" target="_blank" rel="noopener noreferrer">Активная parser task</a>
+          <a class="mb-helper-admin-link" href="${location.origin}/moments/create" target="_blank" rel="noopener noreferrer">Создание moments</a>
+          <a class="mb-helper-admin-link" href="${location.origin}/cards/create" target="_blank" rel="noopener noreferrer">Создание card</a>
+        </div>
+      `;
+    }
+
     document.body.appendChild(launcher);
     document.body.appendChild(panel);
     document.body.appendChild(backdrop);
@@ -1517,6 +1642,10 @@
     document.body.appendChild(commentsModal);
     document.body.appendChild(chatToggle);
     document.body.appendChild(chatDrawer);
+    if (adminToggle && adminDrawer) {
+      document.body.appendChild(adminToggle);
+      document.body.appendChild(adminDrawer);
+    }
 
     addModalScrollControls(scrollModal);
     addModalScrollControls(quizModal);
@@ -1526,6 +1655,9 @@
     const quizModalController = new ModalController(backdrop, quizModal);
     const commentsModalController = new ModalController(backdrop, commentsModal);
     const chatDrawerController = new DrawerController(chatDrawer, chatToggle);
+    if (adminDrawer && adminToggle) {
+      adminDrawerController = new DrawerController(adminDrawer, adminToggle);
+    }
 
     const rangeInput = scrollModal.querySelector('#mb-scroll-step-range');
     const numberInput = scrollModal.querySelector('#mb-scroll-step-number');
@@ -1550,6 +1682,7 @@
     const chatFrame = chatDrawer.querySelector('#mb-chat-frame');
     const chatCloseButton = chatDrawer.querySelector('#mb-chat-close');
     const chatOpenLinkButton = chatDrawer.querySelector('#mb-chat-open-link');
+    const adminCloseButton = adminDrawer?.querySelector('#mb-admin-close');
 
     controls.scrollStep = numberInput;
 
@@ -1600,6 +1733,10 @@
     commentsCancelButton.addEventListener('click', () => commentsModalController.close());
     chatToggle.addEventListener('click', () => chatDrawerController.toggleState());
     chatCloseButton.addEventListener('click', () => chatDrawerController.close());
+    if (adminToggle && adminDrawerController && adminCloseButton) {
+      adminToggle.addEventListener('click', () => adminDrawerController.toggleState());
+      adminCloseButton.addEventListener('click', () => adminDrawerController.close());
+    }
 
     chatOpenLinkButton.addEventListener('click', () => {
       const nextChatUrl = chatUrlInput.value.trim() || settings.chatUrl;
